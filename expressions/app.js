@@ -81,12 +81,6 @@
   function generateHint(englishStr) {
     const words = englishStr.split(/\s+/);
 
-    // Check if there are any function words
-    const hasFunctionWords = words.some(w => {
-      const clean = w.replace(/[^a-zA-Z']/g, '').toLowerCase();
-      return FUNCTION_WORDS.has(clean);
-    });
-
     return words.map(word => {
       // Preserve punctuation around the word
       const match = word.match(/^([^a-zA-Z']*)([\w']+)([^a-zA-Z']*)$/);
@@ -100,15 +94,10 @@
         return prefix + core + suffix;
       }
 
-      if (hasFunctionWords) {
-        // Blank out content words: show as ___
-        const blankWidth = Math.max(core.length * 0.6, 2);
-        return `${prefix}<span class="blank" style="min-width:${blankWidth}em" data-word="${core}">${core}</span>${suffix}`;
-      } else {
-        // Fallback: show first letter + blanks
-        const firstLetter = core[0];
-        return `${prefix}<span class="first-letter">${firstLetter}</span><span class="blank" data-word="${core.slice(1)}">${core.slice(1)}</span>${suffix}`;
-      }
+      // Content words: show first letter + blank
+      const firstLetter = core[0];
+      const blankWidth = Math.max((core.length - 1) * 0.55, 1.5);
+      return `${prefix}<span class="first-letter">${firstLetter}</span><span class="blank" style="min-width:${blankWidth}em" data-word="${core.slice(1)}">${core.slice(1)}</span>${suffix}`;
     }).join(' ');
   }
 

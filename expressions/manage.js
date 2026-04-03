@@ -53,76 +53,114 @@
     }
   }
 
-  // --- Parse Korean/English text ---
+  // --- Parse Korean/English text (auto-detect order) ---
   function parseText(text) {
     const results = [];
-    // Trim and normalize whitespace
     text = text.trim();
     if (!text) return results;
 
-    // Strategy: Find boundaries where Korean text transitions to English text
-    // Korean Unicode ranges: AC00-D7AF (syllables), 3130-318F (jamo), 1100-11FF (jamo)
     const koreanRegex = /[\uAC00-\uD7AF\u3130-\u318F\u1100-\u11FF]/;
     const latinRegex = /[a-zA-Z]/;
+    const chars = [...text];
 
-    // Split into segments by finding ko→en transitions
     let i = 0;
-    const chars = [...text]; // Handle multi-byte correctly
 
     while (i < chars.length) {
-      // Skip leading whitespace/newlines
-      while (i < chars.length && /[\s\n\r]/.test(chars[i]) && !koreanRegex.test(chars[i])) {
+      // Skip whitespace/newlines
+      while (i < chars.length && /[\s\n\r]/.test(chars[i]) && !koreanRegex.test(chars[i]) && !latinRegex.test(chars[i])) {
         i++;
       }
       if (i >= chars.length) break;
 
-      // Find Korean part
-      let koStart = i;
-      let koEnd = -1;
-      let enStart = -1;
+      // Detect what the first segment is
+      const startsWithKorean = koreanRegex.test(chars[i]);
+      const startsWithEnglish = latinRegex.test(chars[i]);
 
-      // Scan forward to find where Korean ends and English begins
-      let lastKoreanPos = -1;
-      for (let j = i; j < chars.length; j++) {
-        if (koreanRegex.test(chars[j])) {
-          lastKoreanPos = j;
-        }
-        if (latinRegex.test(chars[j]) && lastKoreanPos >= 0) {
-          // Check if this is truly an English segment (not a single letter in Korean text)
-          let englishRunLength = 0;
-          for (let k = j; k < chars.length && !koreanRegex.test(chars[k]); k++) {
-            if (latinRegex.test(chars[k])) englishRunLength++;
+      if (!startsWithKorean && !startsWithEnglish) {
+        i++;
+        continue;
+      }
+
+      let firstStart = i;
+      let firstEnd = -1;
+      let secondStart = -1;
+      let secondEnd = -1;
+
+      if (startsWithKorean) {
+        // Korean first → find transition to English
+        let lastKoreanPos = -1;
+        for (let j = i; j < chars.length; j++) {
+          if (koreanRegex.test(chars[j])) lastKoreanPos = j;
+          if (latinRegex.test(chars[j]) && lastKoreanPos >= 0) {
+            let englishRunLength = 0;
+            for (let k = j; k < chars.length && !koreanRegex.test(chars[k]); k++) {
+              if (latinRegex.test(chars[k])) englishRunLength++;
+            }
+            if (englishRunLength >= 2) {
+              firstEnd = lastKoreanPos + 1;
+              secondStart = j;
+              break;
+            }
           }
-          if (englishRunLength >= 2) {
-            koEnd = lastKoreanPos + 1;
-            enStart = j;
+        }
+
+        if (firstEnd === -1 || secondStart === -1) break;
+
+        // Find English end (next Korean or end)
+        secondEnd = chars.length;
+        for (let j = secondStart; j < chars.length; j++) {
+          if (koreanRegex.test(chars[j])) {
+            secondEnd = j;
             break;
           }
         }
-      }
 
-      if (koEnd === -1 || enStart === -1) {
-        // No English found — rest is Korean only, skip
-        break;
-      }
+        const ko = chars.slice(firstStart, firstEnd).join('').trim();
+        const en = chars.slice(secondStart, secondEnd).join('').trim();
+        if (ko && en) results.push({ ko, en });
+        i = secondEnd;
 
-      // Find English part end (next Korean char or end of text)
-      let enEnd = chars.length;
-      for (let j = enStart; j < chars.length; j++) {
-        if (koreanRegex.test(chars[j])) {
-          enEnd = j;
-          break;
+      } else {
+        // English first → find transition to Korean
+        let lastEnglishPos = -1;
+        for (let j = i; j < chars.length; j++) {
+          if (latinRegex.test(chars[j]) || /[\s''\-]/.test(chars[j])) {
+            if (latinRegex.test(chars[j])) lastEnglishPos = j;
+          }
+          if (koreanRegex.test(chars[j]) && lastEnglishPos >= 0) {
+            firstEnd = lastEnglishPos + 1;
+            secondStart = j;
+            break;
+          }
         }
+
+        if (firstEnd === -1 || secondStart === -1) break;
+
+        // Find Korean end (next English segment with 2+ chars, or end)
+        secondEnd = chars.length;
+        for (let j = secondStart; j < chars.length; j++) {
+          if (latinRegex.test(chars[j])) {
+            // Check if this is truly a new English segment
+            let englishRunLength = 0;
+            for (let k = j; k < chars.length && !koreanRegex.test(chars[k]); k++) {
+              if (latinRegex.test(chars[k])) englishRunLength++;
+            }
+            if (englishRunLength >= 2) {
+              secondEnd = j;
+              // Trim back to last Korean char
+              while (secondEnd > secondStart && !koreanRegex.test(chars[secondEnd - 1])) {
+                secondEnd--;
+              }
+              break;
+            }
+          }
+        }
+
+        const en = chars.slice(firstStart, firstEnd).join('').trim();
+        const ko = chars.slice(secondStart, secondEnd).join('').trim();
+        if (ko && en) results.push({ ko, en });
+        i = secondEnd;
       }
-
-      const ko = chars.slice(koStart, koEnd).join('').trim();
-      const en = chars.slice(enStart, enEnd).join('').trim();
-
-      if (ko && en) {
-        results.push({ ko, en });
-      }
-
-      i = enEnd;
     }
 
     return results;

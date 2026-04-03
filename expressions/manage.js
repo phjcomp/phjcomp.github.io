@@ -15,16 +15,12 @@
 
   // --- State ---
   let expressions = [];          // All expressions (loaded from GitHub/data.json)
-  let pendingParsed = [];        // Temporarily parsed from current paste
   let hasUnsavedChanges = false;
   let currentEditIndex = -1;
   let fileSHA = null;            // SHA of data.json on GitHub (needed for updates)
 
   // --- DOM Elements ---
   const inputText = document.getElementById('inputText');
-  const previewSection = document.getElementById('previewSection');
-  const previewList = document.getElementById('previewList');
-  const previewTitle = document.getElementById('previewTitle');
   const expressionList = document.getElementById('expressionList');
   const totalCount = document.getElementById('totalCount');
   const tokenInput = document.getElementById('tokenInput');
@@ -139,106 +135,33 @@
     );
   }
 
-  // --- Parse and show preview ---
+  // --- Parse and add directly ---
   window.parseAndPreview = function () {
     const text = inputText.value;
-    pendingParsed = parseText(text);
+    const parsed = parseText(text);
 
-    if (pendingParsed.length === 0) {
+    if (parsed.length === 0) {
       showToast('파싱 결과가 없습니다. 입력을 확인해주세요.', 'warning');
       return;
     }
 
-    // Render preview
-    previewList.innerHTML = '';
-    pendingParsed.forEach((item, idx) => {
-      const isDuplicate = checkDuplicate(item);
-      const li = document.createElement('li');
-      li.className = 'preview-item';
-      li.innerHTML = `
-        <span class="preview-item__status">${isDuplicate ? '⚠️' : '✅'}</span>
-        <div class="preview-item__text">
-          <div class="preview-item__ko">${escapeHtml(item.ko)}</div>
-          <div class="preview-item__en">→ ${escapeHtml(item.en)}</div>
-          ${isDuplicate ? '<div class="preview-item__duplicate">중복된 표현</div>' : ''}
-        </div>
-        <div class="preview-item__actions">
-          <button class="btn-icon" onclick="editPreviewItem(${idx})" title="수정">✏️</button>
-          <button class="btn-icon btn-icon--danger" onclick="deletePreviewItem(${idx})" title="삭제">🗑️</button>
-        </div>
-      `;
-      previewList.appendChild(li);
-    });
-
-    previewTitle.textContent = `미리보기 (${pendingParsed.length}개)`;
-    previewSection.classList.add('preview-section--active');
-  };
-
-  // --- Edit preview item ---
-  window.editPreviewItem = function (idx) {
-    currentEditIndex = idx;
-    const item = pendingParsed[idx];
-    document.getElementById('editKo').value = item.ko;
-    document.getElementById('editEn').value = item.en;
-    document.getElementById('editModal').classList.add('modal-overlay--active');
-    document.getElementById('editKo').focus();
-    // Mark as preview edit
-    document.getElementById('editModal').dataset.mode = 'preview';
-  };
-
-  // --- Delete preview item ---
-  window.deletePreviewItem = function (idx) {
-    pendingParsed.splice(idx, 1);
-    if (pendingParsed.length === 0) {
-      previewSection.classList.remove('preview-section--active');
-    } else {
-      // Re-render preview
-      window.parseAndPreview.__rerender = true;
-      previewList.innerHTML = '';
-      pendingParsed.forEach((item, i) => {
-        const isDuplicate = checkDuplicate(item);
-        const li = document.createElement('li');
-        li.className = 'preview-item';
-        li.innerHTML = `
-          <span class="preview-item__status">${isDuplicate ? '⚠️' : '✅'}</span>
-          <div class="preview-item__text">
-            <div class="preview-item__ko">${escapeHtml(item.ko)}</div>
-            <div class="preview-item__en">→ ${escapeHtml(item.en)}</div>
-            ${isDuplicate ? '<div class="preview-item__duplicate">중복된 표현</div>' : ''}
-          </div>
-          <div class="preview-item__actions">
-            <button class="btn-icon" onclick="editPreviewItem(${i})" title="수정">✏️</button>
-            <button class="btn-icon btn-icon--danger" onclick="deletePreviewItem(${i})" title="삭제">🗑️</button>
-          </div>
-        `;
-        previewList.appendChild(li);
-      });
-      previewTitle.textContent = `미리보기 (${pendingParsed.length}개)`;
-    }
-  };
-
-  // --- Confirm and add to expressions ---
-  window.confirmAdd = function () {
-    // Filter out duplicates (optional: or add all with warning)
-    const newItems = pendingParsed.filter(item => !checkDuplicate(item));
-    const duplicateCount = pendingParsed.length - newItems.length;
+    // Filter out duplicates
+    const newItems = parsed.filter(item => !checkDuplicate(item));
+    const duplicateCount = parsed.length - newItems.length;
 
     if (newItems.length === 0) {
       showToast('추가할 새 표현이 없습니다 (모두 중복)', 'warning');
-      previewSection.classList.remove('preview-section--active');
-      pendingParsed = [];
+      inputText.value = '';
       return;
     }
 
-    // Mark new items
+    // Mark new items and add
     newItems.forEach(item => item._isNew = true);
     expressions.push(...newItems);
     hasUnsavedChanges = true;
 
-    // Clear
-    pendingParsed = [];
+    // Clear input
     inputText.value = '';
-    previewSection.classList.remove('preview-section--active');
 
     // Update list
     renderExpressionList();
@@ -305,42 +228,16 @@
   window.saveEdit = function () {
     const ko = document.getElementById('editKo').value.trim();
     const en = document.getElementById('editEn').value.trim();
-    const mode = document.getElementById('editModal').dataset.mode;
 
     if (!ko || !en) {
       showToast('한국어와 영어 모두 입력해주세요', 'warning');
       return;
     }
 
-    if (mode === 'preview') {
-      pendingParsed[currentEditIndex] = { ko, en };
-      // Re-render preview
-      const fakeEvent = { target: inputText };
-      previewList.innerHTML = '';
-      pendingParsed.forEach((item, idx) => {
-        const isDuplicate = checkDuplicate(item);
-        const li = document.createElement('li');
-        li.className = 'preview-item';
-        li.innerHTML = `
-          <span class="preview-item__status">${isDuplicate ? '⚠️' : '✅'}</span>
-          <div class="preview-item__text">
-            <div class="preview-item__ko">${escapeHtml(item.ko)}</div>
-            <div class="preview-item__en">→ ${escapeHtml(item.en)}</div>
-            ${isDuplicate ? '<div class="preview-item__duplicate">중복된 표현</div>' : ''}
-          </div>
-          <div class="preview-item__actions">
-            <button class="btn-icon" onclick="editPreviewItem(${idx})" title="수정">✏️</button>
-            <button class="btn-icon btn-icon--danger" onclick="deletePreviewItem(${idx})" title="삭제">🗑️</button>
-          </div>
-        `;
-        previewList.appendChild(li);
-      });
-    } else {
-      expressions[currentEditIndex] = { ko, en };
-      hasUnsavedChanges = true;
-      renderExpressionList();
-      updatePushButton();
-    }
+    expressions[currentEditIndex] = { ko, en };
+    hasUnsavedChanges = true;
+    renderExpressionList();
+    updatePushButton();
 
     closeModal();
     showToast('수정 완료', 'success');

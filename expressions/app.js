@@ -41,7 +41,8 @@
   const koreanText = document.getElementById('koreanText');
   const englishText = document.getElementById('englishText');
   const counter = document.getElementById('counter');
-  const footerHint = document.getElementById('footerHint');
+  const btnSpeak = document.getElementById('btnSpeak');
+  const btnAction = document.getElementById('btnAction');
 
   // --- Initialize ---
   async function init() {
@@ -106,7 +107,6 @@
       } else {
         // Fallback: show first letter + blanks
         const firstLetter = core[0];
-        const rest = '___';
         return `${prefix}<span class="first-letter">${firstLetter}</span><span class="blank" data-word="${core.slice(1)}">${core.slice(1)}</span>${suffix}`;
       }
     }).join(' ');
@@ -150,22 +150,22 @@
     // Counter
     counter.textContent = `${currentIndex + 1} / ${shuffled.length}`;
 
-    // Footer
-    footerHint.textContent = '탭하여 정답 확인';
+    // Button
+    btnAction.textContent = '정답확인';
+    btnAction.classList.remove('btn-action--next');
 
     isRevealed = false;
   }
 
-  // --- Handle Tap ---
-  function handleTap(e) {
-    // Don't trigger on link clicks
-    if (e.target.closest('a')) return;
-
+  // --- Handle Action Button ---
+  btnAction.addEventListener('click', function (e) {
+    e.stopPropagation();
     if (!isRevealed) {
       // Reveal answer
       englishText.innerHTML = generateRevealed(shuffled[currentIndex].en);
       englishText.classList.add('flashcard__english--revealed');
-      footerHint.textContent = '탭하여 다음 표현';
+      btnAction.textContent = 'Next →';
+      btnAction.classList.add('btn-action--next');
       isRevealed = true;
     } else {
       // Next expression
@@ -177,18 +177,54 @@
       }
       showCurrent();
     }
+  });
+
+  // --- Handle Speak Button (TTS) ---
+  btnSpeak.addEventListener('click', function (e) {
+    e.stopPropagation();
+    const expr = shuffled[currentIndex];
+    speakEnglish(expr.en);
+  });
+
+  // --- Text-to-Speech ---
+  function speakEnglish(text) {
+    if (!('speechSynthesis' in window)) return;
+
+    // Cancel any ongoing speech
+    speechSynthesis.cancel();
+
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = 'en-US';
+    utterance.rate = 0.85;
+    utterance.pitch = 1;
+
+    // Try to find a good English voice
+    const voices = speechSynthesis.getVoices();
+    const englishVoice = voices.find(v =>
+      v.lang.startsWith('en') && v.name.includes('Samantha')
+    ) || voices.find(v =>
+      v.lang.startsWith('en-US')
+    ) || voices.find(v =>
+      v.lang.startsWith('en')
+    );
+
+    if (englishVoice) {
+      utterance.voice = englishVoice;
+    }
+
+    // Animate button
+    btnSpeak.classList.add('btn-speak--active');
+    utterance.onend = () => btnSpeak.classList.remove('btn-speak--active');
+    utterance.onerror = () => btnSpeak.classList.remove('btn-speak--active');
+
+    speechSynthesis.speak(utterance);
   }
 
-  // --- Event Listeners ---
-  studyPage.addEventListener('click', handleTap);
-
-  // Prevent double-tap zoom on mobile
-  studyPage.addEventListener('touchend', function (e) {
-    if (!e.target.closest('a')) {
-      e.preventDefault();
-      handleTap(e);
-    }
-  }, { passive: false });
+  // Preload voices
+  if ('speechSynthesis' in window) {
+    speechSynthesis.getVoices();
+    speechSynthesis.onvoiceschanged = () => speechSynthesis.getVoices();
+  }
 
   // --- Start ---
   init();

@@ -62,6 +62,9 @@
     const koreanRegex = /[\uAC00-\uD7AF\u3130-\u318F\u1100-\u11FF]/;
     const latinRegex = /[a-zA-Z]/;
     const chars = [...text];
+    
+    // Helper to remove leading numbering/bullets and trailing parentheses
+    const cleanStr = (s) => s.replace(/^[0-9.\-()•\]\[\s]+/, '').replace(/[()\]\[\s]+$/, '').trim();
 
     let i = 0;
 
@@ -115,8 +118,8 @@
           }
         }
 
-        const ko = chars.slice(firstStart, firstEnd).join('').trim();
-        const en = chars.slice(secondStart, secondEnd).join('').trim();
+        const ko = cleanStr(chars.slice(firstStart, firstEnd).join(''));
+        const en = cleanStr(chars.slice(secondStart, secondEnd).join(''));
         if (ko && en) results.push({ ko, en });
         i = secondEnd;
 
@@ -156,8 +159,8 @@
           }
         }
 
-        const en = chars.slice(firstStart, firstEnd).join('').trim();
-        const ko = chars.slice(secondStart, secondEnd).join('').trim();
+        const en = cleanStr(chars.slice(firstStart, firstEnd).join(''));
+        const ko = cleanStr(chars.slice(secondStart, secondEnd).join(''));
         if (ko && en) results.push({ ko, en });
         i = secondEnd;
       }
@@ -253,13 +256,11 @@
 
   // --- Delete expression ---
   window.deleteExpression = function (idx) {
-    if (confirm(`"${expressions[idx].ko}" 표현을 삭제하시겠습니까?`)) {
-      expressions.splice(idx, 1);
-      hasUnsavedChanges = true;
-      renderExpressionList();
-      updatePushButton();
-      showToast('표현 삭제됨', 'success');
-    }
+    expressions.splice(idx, 1);
+    hasUnsavedChanges = true;
+    renderExpressionList();
+    updatePushButton();
+    showToast('표현 삭제됨', 'success');
   };
 
   // --- Save edit (modal) ---

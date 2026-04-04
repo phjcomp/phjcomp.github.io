@@ -5,34 +5,12 @@
 (function () {
   'use strict';
 
-  // --- Function words that remain visible in hints ---
-  const FUNCTION_WORDS = new Set([
-    // Articles
-    'a', 'an', 'the',
-    // Prepositions
-    'in', 'on', 'at', 'of', 'to', 'for', 'by', 'with', 'from', 'into',
-    'onto', 'upon', 'about', 'above', 'below', 'between', 'through',
-    'during', 'without', 'within', 'against', 'along', 'among', 'around',
-    'before', 'behind', 'beneath', 'beside', 'beyond', 'despite', 'down',
-    'except', 'inside', 'near', 'off', 'out', 'outside', 'over', 'past',
-    'since', 'toward', 'towards', 'under', 'until', 'up',
-    // Be
-    'be', 'is', 'am', 'are', 'was', 'were', 'been', 'being',
-    // Negation
-    'not',
-    // Possessives / Reflexives
-    "one's", 'oneself',
-    // Conjunctions
-    'and', 'or', 'but', 'nor', 'yet', 'so',
-    // Other
-    'as', 'if', 'than', 'that', 'no'
-  ]);
+
 
   // --- State ---
   let expressions = [];
   let shuffled = [];
   let currentIndex = 0;
-  let isRevealed = false;
 
   // --- DOM Elements ---
   const studyPage = document.getElementById('studyPage');
@@ -64,7 +42,6 @@
 
     shuffled = shuffle([...expressions]);
     currentIndex = 0;
-    isRevealed = false;
     showCurrent();
   }
 
@@ -75,49 +52,6 @@
       [arr[i], arr[j]] = [arr[j], arr[i]];
     }
     return arr;
-  }
-
-  // --- Generate Hint HTML ---
-  function generateHint(englishStr) {
-    const words = englishStr.split(/\s+/);
-
-    return words.map(word => {
-      // Preserve punctuation around the word
-      const match = word.match(/^([^a-zA-Z']*)([\w']+)([^a-zA-Z']*)$/);
-      if (!match) return word;
-
-      const [, prefix, core, suffix] = match;
-      const lower = core.toLowerCase();
-
-      if (FUNCTION_WORDS.has(lower)) {
-        // Show function words as-is
-        return prefix + core + suffix;
-      }
-
-      // Content words: show first letter + blank
-      const firstLetter = core[0];
-      const blankWidth = Math.max((core.length - 1) * 0.55, 1.5);
-      return `${prefix}<span class="first-letter">${firstLetter}</span><span class="blank" style="min-width:${blankWidth}em" data-word="${core.slice(1)}">${core.slice(1)}</span>${suffix}`;
-    }).join(' ');
-  }
-
-  // --- Generate Revealed HTML ---
-  function generateRevealed(englishStr) {
-    const words = englishStr.split(/\s+/);
-
-    return words.map(word => {
-      const match = word.match(/^([^a-zA-Z']*)([\w']+)([^a-zA-Z']*)$/);
-      if (!match) return word;
-
-      const [, prefix, core, suffix] = match;
-      const lower = core.toLowerCase();
-
-      if (FUNCTION_WORDS.has(lower)) {
-        return prefix + core + suffix;
-      }
-      // Highlight content words
-      return `${prefix}<span class="blank">${core}</span>${suffix}`;
-    }).join(' ');
   }
 
   // --- Show Current Expression ---
@@ -132,40 +66,24 @@
     // Korean
     koreanText.textContent = expr.ko;
 
-    // English hint
-    englishText.innerHTML = generateHint(expr.en);
-    englishText.classList.remove('flashcard__english--revealed');
+    // English (directly visible)
+    englishText.textContent = expr.en;
 
     // Counter
     counter.textContent = `${currentIndex + 1} / ${shuffled.length}`;
-
-    // Button
-    btnAction.textContent = '정답확인';
-    btnAction.classList.remove('btn-action--next');
-
-    isRevealed = false;
   }
 
   // --- Handle Action Button ---
   btnAction.addEventListener('click', function (e) {
     e.stopPropagation();
-    if (!isRevealed) {
-      // Reveal answer
-      englishText.innerHTML = generateRevealed(shuffled[currentIndex].en);
-      englishText.classList.add('flashcard__english--revealed');
-      btnAction.textContent = 'Next →';
-      btnAction.classList.add('btn-action--next');
-      isRevealed = true;
-    } else {
-      // Next expression
-      currentIndex++;
-      if (currentIndex >= shuffled.length) {
-        // Reshuffle and start over
-        shuffled = shuffle([...expressions]);
-        currentIndex = 0;
-      }
-      showCurrent();
+    // Next expression
+    currentIndex++;
+    if (currentIndex >= shuffled.length) {
+      // Reshuffle and start over
+      shuffled = shuffle([...expressions]);
+      currentIndex = 0;
     }
+    showCurrent();
   });
 
   // --- Handle Speak Button (TTS) ---

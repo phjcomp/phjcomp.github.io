@@ -124,37 +124,12 @@ body {
 .flashcard__english {
   font-family: var(--font-en);
   font-size: 1.35rem;
-  font-weight: 400;
-  color: #555555;
+  font-weight: 500;
+  color: var(--text-primary);
   text-align: center;
   line-height: 1.6;
   letter-spacing: 0.01em;
   min-height: 2.8em;
-  transition: color 0.3s ease;
-}
-
-.flashcard__english--revealed {
-  color: var(--text-primary);
-  font-weight: 500;
-}
-
-.flashcard__english .blank {
-  display: inline-block;
-  min-width: 2em;
-  border-bottom: 2.5px solid #AAAAAA;
-  margin: 0 2px;
-  color: transparent;
-  position: relative;
-}
-
-.flashcard__english--revealed .blank {
-  color: var(--accent);
-  border-bottom-color: transparent;
-  font-weight: 600;
-}
-
-.flashcard__english .first-letter {
-  color: var(--text-hint);
 }
 
 /* --- Buttons --- */

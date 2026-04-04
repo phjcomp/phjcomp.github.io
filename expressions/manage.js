@@ -196,9 +196,9 @@
       return;
     }
 
-    // Mark new items and add
+    // Mark new items and add to the TOP of the list
     newItems.forEach(item => item._isNew = true);
-    expressions.push(...newItems);
+    expressions.unshift(...newItems);
     hasUnsavedChanges = true;
 
     // Clear input
